@@ -118,6 +118,7 @@ void RubyHttpConnection_t::ProcessRequest (const char *request_method,
 {
 	VALUE post = Qnil;
 	VALUE headers = Qnil;
+	VALUE headers_parsed = Qnil;
 	VALUE req_method = Qnil;
 	VALUE cookie_val = Qnil;
 	VALUE ifnonematch_val = Qnil;
@@ -127,13 +128,25 @@ void RubyHttpConnection_t::ProcessRequest (const char *request_method,
 	VALUE request_uri_val = Qnil;
 	VALUE protocol_val = Qnil;
 
-	if ((post_length > 0) && post_content)
-		post = rb_str_new (post_content, post_length);
-
 	if (hdr_block && (hdr_block_size > 0))
 		headers = rb_str_new (hdr_block, hdr_block_size);
 	else
 		headers = rb_str_new ("", 0);
+
+	const char *pheaders = hdr_block;
+	int i = 0;
+	const char *header_key_end;
+	headers_parsed = rb_hash_new();
+
+	while(i < hdr_block_size) {
+		if( (header_key_end = strchr(pheaders + i, ':')) != NULL && strlen(pheaders + i) > 0) {
+		  rb_hash_aset(headers_parsed, rb_str_new(pheaders + i, header_key_end - (pheaders + i)), rb_str_new2(header_key_end + 2));
+	  }
+		i += strlen(pheaders + i) + 1;
+	}
+
+	if ((post_length > 0) && post_content)
+		post = rb_str_new (post_content, post_length);
 
 	if (request_method && *request_method)
 		req_method = rb_str_new (request_method, strlen (request_method));
@@ -161,6 +174,7 @@ void RubyHttpConnection_t::ProcessRequest (const char *request_method,
 	rb_ivar_set (Myself, rb_intern ("@http_query_string"), query_string_val);
 	rb_ivar_set (Myself, rb_intern ("@http_post_content"), post);
 	rb_ivar_set (Myself, rb_intern ("@http_headers"), headers);
+	rb_ivar_set (Myself, rb_intern ("@http_headers_parsed"), headers_parsed);	
 	rb_ivar_set (Myself, rb_intern ("@http_protocol"), protocol_val);
 	rb_funcall (Myself, rb_intern ("process_http_request"), 0);
 }
